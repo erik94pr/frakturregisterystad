@@ -1,13 +1,13 @@
 import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, signOut, reload } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
 const $ = id => document.getElementById(id);
 const months = ['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
 const now = new Date();
-let year = now.getFullYear(), month = now.getMonth(), name = localStorage.getItem('frakturkalender-name') || '';
-let uid = '', db = null, detach = null, entries = [], annualEntries = [], selectedDate = '', demo = !firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId;
+let year = now.getFullYear(), month = now.getMonth(), name = '';
+let uid = '', db = null, auth = null, detach = null, detachProfile = null, detachAdmin = null, entries = [], annualEntries = [], selectedDate = '', approved = false, administrator = false, currentUser = null, authMode = 'login';
 const iso = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 const currentMonth = () => `${year}-${String(month+1).padStart(2,'0')}`;
 const formatDate = value => { const [y,m,d] = value.split('-').map(Number); return `${d} ${months[m-1]} ${y}`; };
@@ -15,10 +15,9 @@ const html = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'
 function showModal(id) { $(id).hidden = false; }
 function hideModal(id) { $(id).hidden = true; }
 function setStatus(text, kind='') { $('connection').textContent = text; $('connection').className = `status ${kind}`; }
-function demoRead() { try {return JSON.parse(localStorage.getItem('frakturkalender-demo') || '[]');} catch {return [];} }
+
 function loadMonth() {
   if(detach) {detach();detach=null;}
-  if(demo){annualEntries=demoRead().filter(e=>e.month?.startsWith(`${year}-`));entries=annualEntries.filter(e=>e.month===currentMonth());render();return;}
   if(!db)return;
   setStatus('Synkroniserar …');
   // One live listener for the selected year: month view and annual statistics stay in sync.
@@ -95,7 +94,7 @@ function render() {
   }
   if(selectedDate && selectedDate.startsWith(currentMonth()))renderDayDetails();
 }
-function openDay(date){selectedDate=date;$('day-title').textContent=formatDate(date);$('save-error').textContent='';renderDayDetails();showModal('day-modal');}
+function openDay(date){selectedDate=date;$('day-title').textContent=formatDate(date);$('save-error').textContent='';renderDayDetails();$('read-only-message').hidden=approved;$('day-form').querySelectorAll('input,button').forEach(el=>el.disabled=!approved);showModal('day-modal');}
 function renderDayDetails(){
   const list=entries.filter(e=>e.date===selectedDate).sort((a,b)=>a.name.localeCompare(b.name,'sv'));
   const mine=list.find(e=>e.uid===uid);
@@ -111,30 +110,94 @@ $('previous').addEventListener('click',()=>navigate(-1));$('next').addEventListe
 $('month-select').addEventListener('change',e=>{month=Number(e.target.value);entries=annualEntries.filter(x=>x.month===currentMonth());render();});
 $('year-select').addEventListener('change',e=>{year=Number(e.target.value);loadMonth();});
 $('today').addEventListener('click',()=>{year=now.getFullYear();month=now.getMonth();loadMonth();});
-$('change-name').addEventListener('click',()=>{$('name-input').value=name;showModal('name-modal');$('name-input').focus();});
-$('name-form').addEventListener('submit',e=>{e.preventDefault();const value=$('name-input').value.trim();if(!value)return;name=value;localStorage.setItem('frakturkalender-name',name);$('active-name').textContent=name;hideModal('name-modal');});
 $('close-day').addEventListener('click',()=>hideModal('day-modal'));
 $('minus').addEventListener('click',()=>{$('count-input').value=Math.max(0,Number($('count-input').value||0)-1);});
 $('plus').addEventListener('click',()=>{$('count-input').value=Math.min(9999,Number($('count-input').value||0)+1);});
 $('day-form').addEventListener('submit',async e=>{
   e.preventDefault();const count=Number($('count-input').value);
   if(!Number.isInteger(count)||count<0||count>9999){$('save-error').textContent='Ange ett heltal mellan 0 och 9999.';return;}
-  if(!name){hideModal('day-modal');showModal('name-modal');return;}
+  if(!approved){$('save-error').textContent='Kontot måste vara godkänt.';return;}
   const id=`${uid}_${selectedDate}`, record={uid,name,date:selectedDate,month:selectedDate.slice(0,7),count};
   $('save-button').disabled=true;$('save-error').textContent='';
   try{
-    if(demo){let all=demoRead().filter(e=>e.id!==id);if(count)all.push({id,...record});localStorage.setItem('frakturkalender-demo',JSON.stringify(all));loadMonth();}
-    else{if(!db||!uid)throw new Error('Anslutningen är inte klar.');if(count)await setDoc(doc(db,'registrations',id),record);else await deleteDoc(doc(db,'registrations',id));}
+    if(!db||!uid)throw new Error('Anslutningen är inte klar.');if(count)await setDoc(doc(db,'registrations',id),record);else await deleteDoc(doc(db,'registrations',id));
     hideModal('day-modal');
   }catch(err){$('save-error').textContent=`Kunde inte spara: ${err.message}`;}
   finally{$('save-button').disabled=false;}
 });
-for(const id of ['day-modal','name-modal'])$(id).addEventListener('click',e=>{if(e.target===$(id)&&id==='day-modal')hideModal(id);});
-if(name)$('active-name').textContent=name;else{showModal('name-modal');setTimeout(()=>$('name-input').focus(),0);}
-if(demo){uid=localStorage.getItem('frakturkalender-demo-uid')||crypto.randomUUID();localStorage.setItem('frakturkalender-demo-uid',uid);setStatus('Demoläge · endast denna webbläsare','demo');loadMonth();}
-else{
-  try{
-    const app=initializeApp(firebaseConfig),auth=getAuth(app);db=getFirestore(app);
-    onAuthStateChanged(auth,async user=>{if(!user){try{await signInAnonymously(auth);}catch(err){setStatus('Inloggning misslyckades','status-error');console.error(err);}return;}uid=user.uid;loadMonth();});
-  }catch(err){setStatus('Felaktig Firebase-konfiguration','status-error');console.error(err);}
+$('day-modal').addEventListener('click',e=>{if(e.target===$('day-modal'))hideModal('day-modal');});
+const ADMIN_EMAIL = 'erik94pr@hotmail.com';
+// Firebase Email/Password kräver ett e-postformat. Vanliga användare loggar in
+// med användarnamn som översätts deterministiskt till en intern identifierare.
+// Den separata återställningsadressen används endast för manuell kontakt.
+const loginAddress = username => username.includes('@') ? username.toLowerCase() : `${username.trim().toLowerCase()}@users.frakturkalender.invalid`;
+const isAdmin = user => !!(user && user.emailVerified && user.email?.toLowerCase() === ADMIN_EMAIL);
+const authError = error => ({'auth/email-already-in-use':'Användarnamnet används redan.','auth/invalid-email':'Ogiltigt användarnamn.','auth/weak-password':'Använd ett längre lösenord.','auth/invalid-credential':'Fel användarnamn eller lösenord.','auth/too-many-requests':'För många försök. Försök igen senare.'}[error.code] || error.message);
+function setAuthMode(mode){
+  authMode=mode;
+  $('auth-title').textContent=mode==='register'?'Skapa konto':'Logga in';
+  $('auth-submit').textContent=mode==='register'?'Skapa konto':'Logga in';
+  for(const id of ['auth-name','name-label','auth-recovery','recovery-label'])$(id).hidden=mode!=='register';
+  $('auth-name').required=mode==='register';
+  $('auth-password').autocomplete=mode==='register'?'new-password':'current-password';
+  $('auth-toggle').textContent=mode==='register'?'Har du redan ett konto? Logga in':'Skapa konto';
+  $('auth-error').textContent='';
 }
+$('auth-toggle').addEventListener('click',()=>setAuthMode(authMode==='login'?'register':'login'));
+$('auth-form').addEventListener('submit',async event=>{
+  event.preventDefault();$('auth-error').textContent='';$('auth-submit').disabled=true;
+  const username=$('auth-email').value.trim().toLowerCase(),password=$('auth-password').value;
+  try{
+    if(authMode==='register'){
+      if(username !== ADMIN_EMAIL && !/^[a-z0-9._-]{3,30}$/.test(username))throw Error('Användarnamn måste vara 3–30 tecken: a–z, 0–9, punkt, understreck eller bindestreck.');
+      const displayName=$('auth-name').value.trim();
+      if(!displayName||displayName.length>60)throw Error('Ange ditt namn (högst 60 tecken).');
+      const recoveryEmail=$('auth-recovery').value.trim().toLowerCase();
+      if(recoveryEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail)||recoveryEmail.length>254))throw Error('Ange en giltig återställningsadress.');
+      const credential=await createUserWithEmailAndPassword(auth,loginAddress(username),password);
+      if(username===ADMIN_EMAIL){await sendEmailVerification(credential.user);$('account-message').textContent='Verifiera administratörens mejladress via mejlet från Firebase.';hideModal('auth-modal');return;}
+      await setDoc(doc(db,'users',credential.user.uid),{email:credential.user.email,name:displayName,username,recoveryEmail,approved:false});
+      $('account-message').textContent='Kontot har skapats och väntar på administratörens godkännande.';
+    }else{
+      if(!username.includes('@') && !/^[a-z0-9._-]{3,30}$/.test(username))throw Error('Ogiltigt användarnamn.');
+      await signInWithEmailAndPassword(auth,loginAddress(username),password);
+    }
+    hideModal('auth-modal');
+  }catch(error){$('auth-error').textContent=authError(error);}finally{$('auth-submit').disabled=false;}
+});
+$('auth-reset').addEventListener('click',()=>{
+  $('auth-error').textContent='Kontakta administratören för återställning av lösenord. Den frivilliga mejladressen är en kontaktadress, inte en automatisk Firebase-återställning.';
+});
+$('sign-out').addEventListener('click',()=>signOut(auth));
+$('verify-refresh').addEventListener('click',async()=>{if(currentUser){await reload(currentUser);await currentUser.getIdToken(true);refreshAccount();}});
+$('verify-resend').addEventListener('click',async()=>{try{await sendEmailVerification(currentUser);$('account-message').textContent='Verifieringsmejl skickat.';}catch(e){$('account-message').textContent=authError(e);}});
+function refreshAccount(){
+  const u=currentUser;administrator=isAdmin(u);
+  $('sign-out').hidden=!u;$('active-name').textContent=u?(name||u.email):'Ej inloggad';
+  $('verify-refresh').hidden=!u||!u.email?.includes('@hotmail.com')||u.emailVerified;
+  $('verify-resend').hidden=!u||!u.email?.includes('@hotmail.com')||u.emailVerified;
+  $('request-email').hidden=true;
+  if(!u){$('account-message').textContent='Alla kan läsa kalendern. Logga in eller skapa ett konto för att registrera.';setAuthMode('login');showModal('auth-modal');}
+  else if(u.email?.toLowerCase()===ADMIN_EMAIL && !u.emailVerified){$('account-message').textContent='Verifiera administratörsadressen via Firebase-mejlet och klicka sedan ”Jag har verifierat min e-post”.';hideModal('auth-modal');}
+  else if(administrator){$('account-message').textContent='Administratör: här kan du godkänna och spärra användare.';hideModal('auth-modal');}
+  else if(approved){$('account-message').textContent='Ditt konto är godkänt. Du kan registrera frakturer.';hideModal('auth-modal');}
+  else{$('account-message').textContent='Kontot väntar på godkännande av administratören.';hideModal('auth-modal');}
+  approved=!!(u && (administrator||approved));
+  $('admin-panel').hidden=!administrator;
+  if(administrator)startAdmin();else if(detachAdmin){detachAdmin();detachAdmin=null;}
+}
+function startAdmin(){if(detachAdmin)return;detachAdmin=onSnapshot(collection(db,'users'),snapshot=>{
+ const users=snapshot.docs.map(d=>({uid:d.id,...d.data()})).sort((a,b)=>Number(a.approved)-Number(b.approved));
+ const el=$('admin-users');el.replaceChildren();for(const user of users){const row=document.createElement('div');row.className='admin-row';const info=document.createElement('span');info.textContent=`${user.name} (@${user.username||user.email}; återställning: ${user.recoveryEmail||"ej angiven"}) – ${user.approved?'Godkänd':'Väntar'}`;const button=document.createElement('button');button.textContent=user.approved?'Spärra':'Godkänn';button.onclick=async()=>{button.disabled=true;try{await updateDoc(doc(db,'users',user.uid),{approved:!user.approved});}catch(e){$('admin-error').textContent=e.message;}finally{button.disabled=false;}};row.append(info,button);el.append(row);}
+ },error=>{$('admin-error').textContent=error.message;});}
+const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);
+onAuthStateChanged(auth,user=>{
+  if(detachProfile){detachProfile();detachProfile=null;}
+  currentUser=user;uid=user?.uid||'';approved=false;administrator=isAdmin(user);name='';
+  if(!user){refreshAccount();loadMonth();return;}
+  detachProfile=onSnapshot(doc(db,'users',uid),snap=>{
+    const data=snap.data();name=data?.name||'';approved=data?.approved===true;refreshAccount();
+  },error=>{$('account-message').textContent='Kunde inte läsa användarkontot: '+error.message;});
+  refreshAccount();loadMonth();
+});
+loadMonth();
