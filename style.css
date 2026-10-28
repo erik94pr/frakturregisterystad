@@ -28,3 +28,14 @@
 .admin-details[open] > summary{border-bottom:1px solid #e2ebeb}
 .admin-details-content{padding:16px 20px 18px}
 .admin-details-content > p:first-child{font-size:13px;margin-bottom:12px}
+
+/* Lösenordsbyte för inloggade användare */
+#change-password[hidden],#password-feedback[hidden]{display:none!important}
+#password-feedback{margin-top:10px;color:#126b52;font-size:13px;font-weight:600}
+#password-modal .modal-header strong{color:#17313d;overflow-wrap:anywhere}
+#password-modal form label:not(:first-child){margin-top:5px}
+@media(max-width:760px){
+  .topbar{flex-wrap:wrap;gap:14px}
+  .account-menu{width:100%;flex-wrap:wrap;justify-content:flex-start;gap:8px}
+  .account-menu #active-name{max-width:100%;flex-basis:100%}
+}

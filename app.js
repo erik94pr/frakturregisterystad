@@ -1,6 +1,6 @@
 import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
 const $ = id => document.getElementById(id);
@@ -236,10 +236,72 @@ $('auth-form').addEventListener('submit',async event=>{
 $('auth-reset').addEventListener('click',()=>{
   $('auth-error').textContent='Kontakta administratören för återställning av lösenord. Den frivilliga mejladressen är en kontaktadress, inte en automatisk Firebase-återställning.';
 });
+// Lösenordsbytet gäller Firebase Authentication-kontot och kräver ingen
+// ändring i Firestore. Kontot kan ha en intern, syntetisk e-postadress;
+// använd den befintliga inloggningsidentiteten i stället för kontaktmejlen.
+function openPasswordChange(){
+  if(!auth?.currentUser)return;
+  $('password-form').reset();
+  $('password-error').textContent='';
+  $('password-feedback').hidden=true;
+  $('password-username').textContent=name||auth.currentUser.email?.split('@')[0]||'användare';
+  showModal('password-modal');
+  $('password-current').focus();
+}
+function closePasswordChange(){
+  if($('password-submit').disabled)return;
+  $('password-form').reset();
+  $('password-error').textContent='';
+  hideModal('password-modal');
+}
+$('change-password').addEventListener('click',openPasswordChange);
+$('close-password').addEventListener('click',closePasswordChange);
+$('password-modal').addEventListener('click',event=>{
+  if(event.target===$('password-modal'))closePasswordChange();
+});
+const passwordErrorMessage=error=>({
+  'auth/wrong-password':'Det nuvarande lösenordet är fel.',
+  'auth/invalid-credential':'Det nuvarande lösenordet är fel.',
+  'auth/weak-password':'Det nya lösenordet är för svagt. Välj ett längre lösenord.',
+  'auth/too-many-requests':'För många försök. Försök igen senare.',
+  'auth/network-request-failed':'Det gick inte att ansluta till Firebase. Kontrollera internetanslutningen.',
+  'auth/requires-recent-login':'Logga ut och in igen och försök byta lösenord på nytt.',
+  'auth/user-disabled':'Kontot är avaktiverat.',
+  'auth/user-token-expired':'Din inloggning har gått ut. Logga in igen.'
+}[error.code]||'Lösenordet kunde inte ändras. Försök igen eller logga in på nytt.');
+$('password-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const user=auth?.currentUser;
+  const oldPassword=$('password-current').value;
+  const newPassword=$('password-new').value;
+  const confirmPassword=$('password-confirm').value;
+  $('password-error').textContent='';
+  if(!user?.email){$('password-error').textContent='Logga in för att byta lösenord.';return;}
+  if(newPassword.length<8){$('password-error').textContent='Det nya lösenordet måste ha minst 8 tecken.';return;}
+  if(newPassword!==confirmPassword){$('password-error').textContent='De nya lösenorden stämmer inte överens.';return;}
+  if(newPassword===oldPassword){$('password-error').textContent='Välj ett annat lösenord än det nuvarande.';return;}
+  $('password-submit').disabled=true;
+  try{
+    // Re-autentisering med användarens nuvarande lösenord krävs av Firebase.
+    await reauthenticateWithCredential(user,EmailAuthProvider.credential(user.email,oldPassword));
+    await updatePassword(user,newPassword);
+    $('password-form').reset();
+    hideModal('password-modal');
+    $('password-feedback').textContent='Ditt lösenord har ändrats. Använd det nya lösenordet nästa gång du loggar in.';
+    $('password-feedback').hidden=false;
+  }catch(error){
+    $('password-error').textContent=passwordErrorMessage(error);
+    $('password-current').value='';
+    console.error('Password update failed:',error.code||error.name);
+  }finally{
+    $('password-submit').disabled=false;
+  }
+});
 $('sign-out').addEventListener('click',()=>signOut(auth));
 function refreshAccount(){
   const u=currentUser;
-  $('sign-out').hidden=!u;$('sign-in').hidden=!!u;$('account-login').hidden=!!u;$('active-name').textContent=u?(name||u.email):'Ej inloggad';
+  $('sign-out').hidden=!u;$('change-password').hidden=!u;$('sign-in').hidden=!!u;$('account-login').hidden=!!u;$('active-name').textContent=u?(name||u.email):'Ej inloggad';
+  if(!u){$('password-form').reset();hideModal('password-modal');$('password-feedback').hidden=true;}
 
   $('request-email').hidden=true;
   if(!u){$('account-message').textContent='Kalendern är öppen för alla, utan inloggning. Logga in eller skapa ett konto endast om du vill registrera frakturer.';}
