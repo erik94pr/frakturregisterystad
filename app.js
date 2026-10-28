@@ -102,7 +102,7 @@ function render() {
   }
   if(selectedDate && selectedDate.startsWith(currentMonth()))renderDayDetails();
 }
-function openDay(date){selectedDate=date;$('day-title').textContent=formatDate(date);$('save-error').textContent='';renderDayDetails();$('read-only-message').hidden=(approved||administrator);$('day-form').querySelectorAll('input,button').forEach(el=>el.disabled=!(approved||administrator));showModal('day-modal');}
+function openDay(date){selectedDate=date;$('day-title').textContent=formatDate(date);$('save-error').textContent='';renderDayDetails();const canWrite=!!currentUser&&(approved||administrator);$('read-only-message').hidden=canWrite;$('day-login').hidden=!!currentUser;$('day-form').hidden=!canWrite;showModal('day-modal');}
 function renderDayDetails(){
   const list=entries.filter(e=>e.date===selectedDate).sort((a,b)=>a.name.localeCompare(b.name,'sv'));
   const mine=list.find(e=>e.uid===uid);
@@ -151,6 +151,12 @@ function setAuthMode(mode){
   $('auth-toggle').textContent=mode==='register'?'Har du redan ett konto? Logga in':'Skapa konto';
   $('auth-error').textContent='';
 }
+function openLogin(){ setAuthMode('login'); showModal('auth-modal'); }
+$('sign-in').addEventListener('click',openLogin);
+$('account-login').addEventListener('click',openLogin);
+$('day-login').addEventListener('click',()=>{hideModal('day-modal');openLogin();});
+$('close-auth').addEventListener('click',()=>hideModal('auth-modal'));
+$('auth-modal').addEventListener('click',e=>{if(e.target===$('auth-modal'))hideModal('auth-modal');});
 $('auth-toggle').addEventListener('click',()=>setAuthMode(authMode==='login'?'register':'login'));
 $('auth-form').addEventListener('submit',async event=>{
   event.preventDefault();$('auth-error').textContent='';$('auth-submit').disabled=true;
@@ -178,13 +184,14 @@ $('auth-reset').addEventListener('click',()=>{
 $('sign-out').addEventListener('click',()=>signOut(auth));
 function refreshAccount(){
   const u=currentUser;
-  $('sign-out').hidden=!u;$('active-name').textContent=u?(name||u.email):'Ej inloggad';
+  $('sign-out').hidden=!u;$('sign-in').hidden=!!u;$('account-login').hidden=!!u;$('active-name').textContent=u?(name||u.email):'Ej inloggad';
 
   $('request-email').hidden=true;
-  if(!u){$('account-message').textContent='Alla kan läsa kalendern. Logga in eller skapa ett konto för att registrera.';setAuthMode('login');showModal('auth-modal');}
+  if(!u){$('account-message').textContent='Kalendern är öppen för alla, utan inloggning. Logga in eller skapa ett konto endast om du vill registrera frakturer.';}
   else if(administrator){$('account-message').textContent='Administratör: här kan du godkänna och spärra användare.';hideModal('auth-modal');}
   else if(approved){$('account-message').textContent='Ditt konto är godkänt. Du kan registrera frakturer.';hideModal('auth-modal');}
   else{$('account-message').textContent='Kontot väntar på godkännande av administratören.';hideModal('auth-modal');}
+  if(!$('day-modal').hidden && selectedDate)openDay(selectedDate);
   // Profile approval is separate from admin role. Admin can register after UID authorization.
   $('admin-panel').hidden=!administrator;
   if(administrator)startAdmin();else if(detachAdmin){detachAdmin();detachAdmin=null;}

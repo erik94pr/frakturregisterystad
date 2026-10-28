@@ -9,3 +9,7 @@
 .day-names{display:flex;flex-direction:column;gap:3px;width:100%;min-width:0;color:#155f4b;font-size:11px;font-weight:600;line-height:1.25}
 .day-registrant{display:block;overflow-wrap:anywhere}
 @media(max-width:760px){.day.has-data{gap:5px}.day-names{font-size:9px;gap:2px}.day-registrant{line-height:1.15}}
+
+/* Offentlig läsvy: registreringsfält visas enbart efter inloggning och godkännande. */
+#day-form[hidden], #day-login[hidden], #sign-in[hidden], #account-login[hidden] {display:none!important;}
+#day-login {margin-top:14px;}

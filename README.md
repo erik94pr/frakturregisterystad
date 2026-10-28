@@ -29,3 +29,6 @@ Den tidigare säkerhetsregeln använde `x.date.substring(0,7)`, en metod som int
 
 ## Namn direkt i kalendern
 Varje grön datumruta visar nu antalet registrerade frakturer och namnet på alla som har registrerat frakturer denna dag. Namnen läses från befintliga registreringar, så inga ändringar i Firestore-regler eller databas krävs. Uppdatera bara `app.js` och `style.css` på GitHub.
+
+## Offentlig kalender utan inloggning
+Alla kan öppna kalendern och se datum, namn, antal, årsstatistik och exportera Excel utan inloggning. Använd knappen **Logga in / Skapa konto** först när registrering önskas. Endast godkända användare och administratörer kan skriva till Firestore. Firestore-reglerna tillåter offentlig läsning av `registrations` men kräver godkänt konto för skrivningar. Befintliga regler behöver inte ändras för denna uppdatering.
