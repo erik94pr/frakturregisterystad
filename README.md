@@ -47,3 +47,9 @@ Tidigare visades **Ändra** och **Ta bort** bara för poster där registrerarens
 **Uppdatera bara `app.js` på GitHub.** Kontrollera att rätt konto är inloggat och att administratörspanelen syns. Öppna sedan ett datum med registreringar. Hård-uppdatera webbläsaren med Ctrl+F5, eller testa privat fönster om gammal JavaScript-fil ligger i cache.
 
 Inga nya Firestore-regler krävs om du redan publicerat reglerna från `frakturkalender-admin-redigera-registreringar.zip`. Om administratörspanelen inte visas måste `administrators/<UID>/active` kontrolleras i Firebase.
+
+
+## Endast användarnamn (2026-10-28)
+Vid kontoskapande anges endast användarnamn, frivillig återställningsmejl och lösenord. Separat namn-fält har tagits bort. Nya registreringar sparar användarnamnet som visningsnamn. Befintliga konton bevaras; deras profilfält `name` raderas inte för kompatibilitet. Historiska registreringar visar det namn som sparades vid registreringstillfället, men när ett befintligt konto sparar om sin post visas dess användarnamn.
+
+**Installation:** Ladda upp `index.html` och `app.js` till GitHub, och publicera innehållet i `firestore.rules` under Firebase → Firestore → Rules. Dessa regler accepterar både tidigare namn och användarnamn för att inte bryta gamla poster.

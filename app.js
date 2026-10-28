@@ -186,8 +186,7 @@ function setAuthMode(mode){
   authMode=mode;
   $('auth-title').textContent=mode==='register'?'Skapa konto':'Logga in';
   $('auth-submit').textContent=mode==='register'?'Skapa konto':'Logga in';
-  for(const id of ['auth-name','name-label','auth-recovery','recovery-label'])$(id).hidden=mode!=='register';
-  $('auth-name').required=mode==='register';
+  for(const id of ['auth-recovery','recovery-label'])$(id).hidden=mode!=='register';
   $('auth-password').autocomplete=mode==='register'?'new-password':'current-password';
   $('auth-toggle').textContent=mode==='register'?'Har du redan ett konto? Logga in':'Skapa konto';
   $('auth-error').textContent='';
@@ -205,12 +204,10 @@ $('auth-form').addEventListener('submit',async event=>{
   try{
     if(authMode==='register'){
       if(!/^[a-z0-9._-]{3,30}$/.test(username))throw Error('Användarnamn måste vara 3–30 tecken: a–z, 0–9, punkt, understreck eller bindestreck.');
-      const displayName=$('auth-name').value.trim();
-      if(!displayName||displayName.length>60)throw Error('Ange ditt namn (högst 60 tecken).');
       const recoveryEmail=$('auth-recovery').value.trim().toLowerCase();
       if(recoveryEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail)||recoveryEmail.length>254))throw Error('Ange en giltig återställningsadress.');
       const credential=await createUserWithEmailAndPassword(auth,loginAddress(username),password);
-      await setDoc(doc(db,'users',credential.user.uid),{email:credential.user.email,name:displayName,username,recoveryEmail,approved:false});
+      await setDoc(doc(db,'users',credential.user.uid),{email:credential.user.email,name:username,username,recoveryEmail,approved:false});
       $('account-message').textContent='Kontot har skapats och väntar på administratörens godkännande.';
     }else{
       if(!username.includes('@') && !/^[a-z0-9._-]{3,30}$/.test(username))throw Error('Ogiltigt användarnamn.');
@@ -239,7 +236,7 @@ function refreshAccount(){
 }
 function startAdmin(){if(detachAdmin)return;detachAdmin=onSnapshot(collection(db,'users'),snapshot=>{
  const users=snapshot.docs.map(d=>({uid:d.id,...d.data()})).sort((a,b)=>Number(a.approved)-Number(b.approved));
- const el=$('admin-users');el.replaceChildren();for(const user of users){const row=document.createElement('div');row.className='admin-row';const info=document.createElement('span');info.textContent=`${user.name} (@${user.username||user.email}; återställning: ${user.recoveryEmail||"ej angiven"}) – ${user.approved?'Godkänd':'Väntar'}`;const button=document.createElement('button');button.textContent=user.approved?'Spärra':'Godkänn';button.onclick=async()=>{button.disabled=true;try{await updateDoc(doc(db,'users',user.uid),{approved:!user.approved});}catch(e){$('admin-error').textContent=e.message;}finally{button.disabled=false;}};row.append(info,button);el.append(row);}
+ const el=$('admin-users');el.replaceChildren();for(const user of users){const row=document.createElement('div');row.className='admin-row';const info=document.createElement('span');info.textContent=`${user.username||user.name||user.email} (återställning: ${user.recoveryEmail||"ej angiven"}) – ${user.approved?'Godkänd':'Väntar'}`;const button=document.createElement('button');button.textContent=user.approved?'Spärra':'Godkänn';button.onclick=async()=>{button.disabled=true;try{await updateDoc(doc(db,'users',user.uid),{approved:!user.approved});}catch(e){$('admin-error').textContent=e.message;}finally{button.disabled=false;}};row.append(info,button);el.append(row);}
  },error=>{$('admin-error').textContent=error.message;});}
 const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);
 onAuthStateChanged(auth,user=>{
@@ -258,7 +255,7 @@ onAuthStateChanged(auth,user=>{
         setDoc(doc(db,'users',uid),{email:internalEmail,name:username,username,recoveryEmail:'',approved:false}).catch(error=>{$('account-message').textContent='Kunde inte skapa användarprofil: '+error.message;});
       }
     }
-    const data=snap.data();name=data?.name||'';approved=data?.approved===true;refreshAccount();
+    const data=snap.data();name=data?.username||data?.name||'';approved=data?.approved===true;refreshAccount();
   },error=>{$('account-message').textContent='Kunde inte läsa användarkontot: '+error.message;});
   refreshAccount();loadMonth();
 });

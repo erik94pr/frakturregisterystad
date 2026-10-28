@@ -42,7 +42,8 @@ service cloud.firestore {
         return x.keys().hasAll(['uid','name','date','month','count'])
           && x.keys().hasOnly(['uid','name','date','month','count'])
           && x.uid == request.auth.uid
-          && x.name == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+          && (x.name == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
+            || x.name == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name)
           && x.date is string && x.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
           && x.month is string && x.month.matches('^[0-9]{4}-[0-9]{2}$')
           && x.month == x.date.split('-')[0] + '-' + x.date.split('-')[1]
