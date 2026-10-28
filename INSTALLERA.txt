@@ -1,0 +1,60 @@
+FRAKTURKALENDERN – TA BORT ANVÄNDARE (administratör)
+====================================================
+Detta paket tillför en röd knapp ”Ta bort” vid varje användare. Knappen
+raderar både Firebase Authentication-kontot och profilen i Firestore.
+Tidigare frakturregistreringar behålls (samma datum och registrerarnamn).
+Din egen admin kan INTE ta bort sig själv.
+
+VIKTIGT: SÄKER BACKEND KRÄVS
+---------------------------
+En vanlig GitHub Pages-sida får inte radera andra användares Firebase-konton.
+Därför innehåller paketet en Firebase Cloud Function. Den kan INTE installeras
+bara genom att ladda upp filer till GitHub.
+
+Firebase Cloud Functions i produktion kräver Blaze (betalningskonto).
+Det finns en generös fri kvot för anrop, men kostnader kan uppstå.
+Om du vill stanna på Spark kan du i stället spärra personen på hemsidan
+och radera Authentication-kontot manuellt under Firebase Console >
+Authentication > Users. Det är inte samma sak som knappen nedan.
+
+A. UPPDATERA GITHUB PAGES
+------------------------
+1. Ladda endast upp index.html, app.js och style.css från paketet till
+   roten av erik94pr/frakturregisterystad (ersätt samma namn).
+2. Commit changes och ladda om sidan (Ctrl+F5).
+3. Du kommer nu att se knappen Ta bort, MEN den fungerar först när B är klart.
+
+B. PUBLICERA SERVERFUNKTIONEN (gör en gång från egen dator)
+---------------------------------------------------------
+1. Installera Node.js LTS (20 eller 22) om det saknas.
+2. Öppna ett terminalfönster i den UPPACKADE mappen (samma nivå som firebase.json).
+3. Kör följande kommandon:
+
+   npm install -g firebase-tools
+   firebase login
+   cd functions
+   npm install
+   cd ..
+   firebase deploy --only functions --project frakturregisterystad
+
+   OBS: Terminalen måste vara i samma katalog som firebase.json vid deploy.
+   Funktionen heter deleteCalendarUser och körs i europe-west3.
+4. Vid uppmaning: projektet måste ha Blaze och ett kopplat betalningskonto.
+   Aktivera gärna budgetvarningar i Google Cloud Billing.
+
+C. TESTA
+--------
+1. Öppna kalendern, logga in som administratör och fäll ut Administrera användare.
+2. Skapa gärna ett nytt testkonto och godkänn det.
+3. Välj Ta bort bredvid TESTKONTOT och bekräfta.
+4. Kontrollera att det försvinner från listan och Firebase Authentication > Users.
+5. Kontrollera att tidigare frakturregistreringar fortfarande visas.
+
+VIKTIGT OM HISTORIK
+------------------
+Borttagning raderar inte historiska frakturregistreringar. De finns kvar under
+användarnamnet som sparades vid registreringstillfället. Vill du även radera
+dessa poster görs det separat i den vanliga kalendern av administratören.
+
+Inga service account-nycklar ska läggas på GitHub.
+Ingen ändring av Firestore-regler krävs för denna funktion.

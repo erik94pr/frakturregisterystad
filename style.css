@@ -28,3 +28,12 @@
 .admin-details[open] > summary{border-bottom:1px solid #e2ebeb}
 .admin-details-content{padding:16px 20px 18px}
 .admin-details-content > p:first-child{font-size:13px;margin-bottom:12px}
+
+/* Kontoborttagning: åtskild från behörighetsknappen och tydligt destruktiv. */
+.admin-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex-shrink:0}
+.admin-row>span{min-width:0;overflow-wrap:anywhere}
+.admin-row .admin-delete{background:#fff0ee;border:1px solid #edc0ba;color:#a4342b;border-radius:7px;padding:9px 12px;font-weight:600}
+.admin-row .admin-delete:hover{background:#fce0dc}
+.admin-row button:disabled{opacity:.5;cursor:wait}
+.admin-success{color:#13714b;font-size:13px;margin-top:10px}
+@media(max-width:760px){.admin-actions{width:100%}}
