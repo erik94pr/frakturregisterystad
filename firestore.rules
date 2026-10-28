@@ -2,8 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function loggedIn() { return request.auth != null; }
-    function verified() { return loggedIn() && request.auth.token.email_verified == true; }
-    function admin() { return verified() && request.auth.token.email == 'erik94pr@hotmail.com'; }
+    // Role is granted ONLY by the Firebase project owner in Firestore console.
+    function admin() {
+      return loggedIn() && exists(/databases/$(database)/documents/administrators/$(request.auth.uid))
+        && get(/databases/$(database)/documents/administrators/$(request.auth.uid)).data.active == true;
+    }
+    match /administrators/{adminUid} {
+      allow get: if loggedIn() && request.auth.uid == adminUid;
+      allow list, create, update, delete: if false;
+    }
     function approved() {
       return loggedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.approved == true;

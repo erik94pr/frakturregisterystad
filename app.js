@@ -1,13 +1,13 @@
 import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, signOut, reload } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
 const $ = id => document.getElementById(id);
 const months = ['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
 const now = new Date();
 let year = now.getFullYear(), month = now.getMonth(), name = '';
-let uid = '', db = null, auth = null, detach = null, detachProfile = null, detachAdmin = null, entries = [], annualEntries = [], selectedDate = '', approved = false, administrator = false, currentUser = null, authMode = 'login';
+let uid = '', db = null, auth = null, detach = null, detachProfile = null, detachAdmin = null, detachRole = null, entries = [], annualEntries = [], selectedDate = '', approved = false, administrator = false, currentUser = null, authMode = 'login';
 const iso = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 const currentMonth = () => `${year}-${String(month+1).padStart(2,'0')}`;
 const formatDate = value => { const [y,m,d] = value.split('-').map(Number); return `${d} ${months[m-1]} ${y}`; };
@@ -94,7 +94,7 @@ function render() {
   }
   if(selectedDate && selectedDate.startsWith(currentMonth()))renderDayDetails();
 }
-function openDay(date){selectedDate=date;$('day-title').textContent=formatDate(date);$('save-error').textContent='';renderDayDetails();$('read-only-message').hidden=approved;$('day-form').querySelectorAll('input,button').forEach(el=>el.disabled=!approved);showModal('day-modal');}
+function openDay(date){selectedDate=date;$('day-title').textContent=formatDate(date);$('save-error').textContent='';renderDayDetails();$('read-only-message').hidden=(approved||administrator);$('day-form').querySelectorAll('input,button').forEach(el=>el.disabled=!(approved||administrator));showModal('day-modal');}
 function renderDayDetails(){
   const list=entries.filter(e=>e.date===selectedDate).sort((a,b)=>a.name.localeCompare(b.name,'sv'));
   const mine=list.find(e=>e.uid===uid);
@@ -116,7 +116,7 @@ $('plus').addEventListener('click',()=>{$('count-input').value=Math.min(9999,Num
 $('day-form').addEventListener('submit',async e=>{
   e.preventDefault();const count=Number($('count-input').value);
   if(!Number.isInteger(count)||count<0||count>9999){$('save-error').textContent='Ange ett heltal mellan 0 och 9999.';return;}
-  if(!approved){$('save-error').textContent='Kontot måste vara godkänt.';return;}
+  if(!(approved||administrator)){$('save-error').textContent='Kontot måste vara godkänt.';return;}
   const id=`${uid}_${selectedDate}`, record={uid,name,date:selectedDate,month:selectedDate.slice(0,7),count};
   $('save-button').disabled=true;$('save-error').textContent='';
   try{
@@ -126,12 +126,12 @@ $('day-form').addEventListener('submit',async e=>{
   finally{$('save-button').disabled=false;}
 });
 $('day-modal').addEventListener('click',e=>{if(e.target===$('day-modal'))hideModal('day-modal');});
-const ADMIN_EMAIL = 'erik94pr@hotmail.com';
+// Administratorns behörighet kontrolleras i Firestore, inte med e-post eller användarnamn.
 // Firebase Email/Password kräver ett e-postformat. Vanliga användare loggar in
 // med användarnamn som översätts deterministiskt till en intern identifierare.
 // Den separata återställningsadressen används endast för manuell kontakt.
 const loginAddress = username => username.includes('@') ? username.toLowerCase() : `${username.trim().toLowerCase()}@users.frakturkalender.invalid`;
-const isAdmin = user => !!(user && user.emailVerified && user.email?.toLowerCase() === ADMIN_EMAIL);
+const isAdmin = () => administrator;
 const authError = error => ({'auth/email-already-in-use':'Användarnamnet används redan.','auth/invalid-email':'Ogiltigt användarnamn.','auth/weak-password':'Använd ett längre lösenord.','auth/invalid-credential':'Fel användarnamn eller lösenord.','auth/too-many-requests':'För många försök. Försök igen senare.'}[error.code] || error.message);
 function setAuthMode(mode){
   authMode=mode;
@@ -149,13 +149,12 @@ $('auth-form').addEventListener('submit',async event=>{
   const username=$('auth-email').value.trim().toLowerCase(),password=$('auth-password').value;
   try{
     if(authMode==='register'){
-      if(username !== ADMIN_EMAIL && !/^[a-z0-9._-]{3,30}$/.test(username))throw Error('Användarnamn måste vara 3–30 tecken: a–z, 0–9, punkt, understreck eller bindestreck.');
+      if(!/^[a-z0-9._-]{3,30}$/.test(username))throw Error('Användarnamn måste vara 3–30 tecken: a–z, 0–9, punkt, understreck eller bindestreck.');
       const displayName=$('auth-name').value.trim();
       if(!displayName||displayName.length>60)throw Error('Ange ditt namn (högst 60 tecken).');
       const recoveryEmail=$('auth-recovery').value.trim().toLowerCase();
       if(recoveryEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail)||recoveryEmail.length>254))throw Error('Ange en giltig återställningsadress.');
       const credential=await createUserWithEmailAndPassword(auth,loginAddress(username),password);
-      if(username===ADMIN_EMAIL){await sendEmailVerification(credential.user);$('account-message').textContent='Verifiera administratörens mejladress via mejlet från Firebase.';hideModal('auth-modal');return;}
       await setDoc(doc(db,'users',credential.user.uid),{email:credential.user.email,name:displayName,username,recoveryEmail,approved:false});
       $('account-message').textContent='Kontot har skapats och väntar på administratörens godkännande.';
     }else{
@@ -169,20 +168,16 @@ $('auth-reset').addEventListener('click',()=>{
   $('auth-error').textContent='Kontakta administratören för återställning av lösenord. Den frivilliga mejladressen är en kontaktadress, inte en automatisk Firebase-återställning.';
 });
 $('sign-out').addEventListener('click',()=>signOut(auth));
-$('verify-refresh').addEventListener('click',async()=>{if(currentUser){await reload(currentUser);await currentUser.getIdToken(true);refreshAccount();}});
-$('verify-resend').addEventListener('click',async()=>{try{await sendEmailVerification(currentUser);$('account-message').textContent='Verifieringsmejl skickat.';}catch(e){$('account-message').textContent=authError(e);}});
 function refreshAccount(){
-  const u=currentUser;administrator=isAdmin(u);
+  const u=currentUser;
   $('sign-out').hidden=!u;$('active-name').textContent=u?(name||u.email):'Ej inloggad';
-  $('verify-refresh').hidden=!u||!u.email?.includes('@hotmail.com')||u.emailVerified;
-  $('verify-resend').hidden=!u||!u.email?.includes('@hotmail.com')||u.emailVerified;
+
   $('request-email').hidden=true;
   if(!u){$('account-message').textContent='Alla kan läsa kalendern. Logga in eller skapa ett konto för att registrera.';setAuthMode('login');showModal('auth-modal');}
-  else if(u.email?.toLowerCase()===ADMIN_EMAIL && !u.emailVerified){$('account-message').textContent='Verifiera administratörsadressen via Firebase-mejlet och klicka sedan ”Jag har verifierat min e-post”.';hideModal('auth-modal');}
   else if(administrator){$('account-message').textContent='Administratör: här kan du godkänna och spärra användare.';hideModal('auth-modal');}
   else if(approved){$('account-message').textContent='Ditt konto är godkänt. Du kan registrera frakturer.';hideModal('auth-modal');}
   else{$('account-message').textContent='Kontot väntar på godkännande av administratören.';hideModal('auth-modal');}
-  approved=!!(u && (administrator||approved));
+  // Profile approval is separate from admin role. Admin can register after UID authorization.
   $('admin-panel').hidden=!administrator;
   if(administrator)startAdmin();else if(detachAdmin){detachAdmin();detachAdmin=null;}
 }
@@ -193,9 +188,20 @@ function startAdmin(){if(detachAdmin)return;detachAdmin=onSnapshot(collection(db
 const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);
 onAuthStateChanged(auth,user=>{
   if(detachProfile){detachProfile();detachProfile=null;}
-  currentUser=user;uid=user?.uid||'';approved=false;administrator=isAdmin(user);name='';
+  if(detachRole){detachRole();detachRole=null;}
+  currentUser=user;uid=user?.uid||'';approved=false;administrator=false;name='';
   if(!user){refreshAccount();loadMonth();return;}
+  detachRole=onSnapshot(doc(db,'administrators',uid), snap=>{administrator=snap.exists() && snap.data()?.active===true;refreshAccount();}, error=>{console.error('Admin role:',error);});
   detachProfile=onSnapshot(doc(db,'users',uid),snap=>{
+    if(!snap.exists()){
+      // Existing legacy admin account may predate user profiles. Create its own
+      // restricted profile; this does NOT grant administrator privileges.
+      const internalEmail=user.email||'';
+      const username=internalEmail.split('@')[0];
+      if(/^[a-z0-9._-]{3,30}$/.test(username) && internalEmail===`${username}@users.frakturkalender.invalid`){
+        setDoc(doc(db,'users',uid),{email:internalEmail,name:username,username,recoveryEmail:'',approved:false}).catch(error=>{$('account-message').textContent='Kunde inte skapa användarprofil: '+error.message;});
+      }
+    }
     const data=snap.data();name=data?.name||'';approved=data?.approved===true;refreshAccount();
   },error=>{$('account-message').textContent='Kunde inte läsa användarkontot: '+error.message;});
   refreshAccount();loadMonth();

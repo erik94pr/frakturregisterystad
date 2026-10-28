@@ -1,12 +1,22 @@
-# Frakturkalendern – användarnamn och godkännande
+# Frakturkalendern – administratör genom Firebase UID
 
-1. I Firebase Authentication → Sign-in method: aktivera **Email/Password**.
-2. Skapa administratör genom att på hemsidan välja "Skapa konto" och ange `erik94pr@hotmail.com` som användarnamn. Verifiera mejlet från Firebase. Logga sedan in på hemsidan med administratörsadressen och lösenordet. Endast den verifierade adressen får adminbehörighet.
-3. Kopiera innehållet från `firestore.rules` till Firebase → Firestore → Rules och välj Publish.
-4. Ladda upp `index.html`, `app.js`, `style.css`, `firebase-config.js` till GitHub Pages. `firestore.rules` ska inte läggas som körbar webbfil.
+## Installera
 
-**Användare:** Skapar användarnamn (a-z 0-9 punkt understreck bindestreck), namn och lösenord. Återställningsmejl är frivilligt och sparas i Firestore men används inte automatiskt av Firebase Authentication. Admin kan godkänna/spärra i hemsidan efter att administratörskontot satts upp och verifierats.
+1. Firebase Console → Authentication → Sign-in method: aktivera **Email/Password**. Ingen e-postverifiering krävs.
+2. Firebase Console → Firestore Database → Rules: klistra in `firestore.rules` och tryck **Publish**.
+3. Under Firebase Authentication → Users: hitta ditt BEFINTLIGA användarkonto (`erik@users.frakturkalender.invalid` om du registrerat användarnamnet erik). Kopiera hela **User UID** med kopieringsikonen. Använd INTE e-postadress eller en avkortad UID från skärmbilden.
+4. Firestore Database → Data → **Start collection**. Collection ID: `administrators`. Välj **Document ID** = hela användarens UID. Lägg till fältet `active`, typ **boolean**, värde `true`. Spara. Detta är den ENDA manuella bootstrap-åtgärden och måste utföras av projektägaren i Firebase Console. Ingen klient kan skapa eller ändra adminroller.
+5. Öppna `index.html` via GitHub Pages efter att de fyra webbplatsfilerna (`index.html`, `style.css`, `app.js`, `firebase-config.js`) laddats upp på nytt. Logga in med samma användarnamn/lösenord som tidigare. Du ska se **Administrera användare**.
+6. Provregistrera ett nytt konto med ett annat användarnamn, logga in som admin och välj **Godkänn**. Testa i två olika webbläsare.
 
-**Viktig begränsning:** Firebase Email/Password använder en intern syntetisk e-postadress för vanliga användare. Automatisk lösenordsåterställning till alternativ mejl stöds INTE utan en betrodd backend. I denna prototyp måste bortglömt lösenord hanteras manuellt med separat säkert administrativt förfarande. Inbyggd Firebase-konsol ger inte enkel klientbaserad reset till en sekundär adress. För driftsättning med fungerande lösenordsåterställning rekommenderas i stället e-post som kontots primära Firebase-identitet, eller en backendfunktion med Firebase Admin SDK.
+## Särskilt om redan skapade konton
 
-**Säkerhet:** Publicerade kalenderdata med namn är personuppgifter. Inga patientdata får registreras. Administratörsbehörighet är kontrollerad i Firestore-reglerna och inte bara i gränssnittet.
+Befintliga konton behålls, inklusive det interna syntetiska e-postformatet `anvandarnamn@users.frakturkalender.invalid`. Det befintliga kontot kan alltså göras till administratör via UID utan mejlverifiering. Om admin-kontot skapades med en annan inloggningsadress än det användarnamn du väljer, logga in med det befintliga kontots ursprungliga inloggningsuppgift.
+
+## Säkerhet
+
+Administratörer identifieras av UID via säkerhetsreglerna, inte genom e-poststräng. **Administrators-dokumenten får bara skapas via Firebase Console av projektägaren** (serveradministratör). Varken en användare eller någon i webbläsaren kan ge sig själv åtkomst. Godkända konton får registrera och ändra sina egna poster. Alla kan läsa kalendern. Användarnamn och namn kan vara personuppgifter; använd inte patientuppgifter.
+
+Återställningsmejl är bara en kontaktuppgift i nuläget, INTE automatisk lösenordsåterställning. Att bygga korrekt återställning för syntetiska e-postkonton kräver en betrodd backend med Firebase Admin SDK.
+
+Inga externa mail skickas automatiskt.
