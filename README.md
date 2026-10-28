@@ -26,3 +26,6 @@ Inga externa mail skickas automatiskt.
 Den tidigare säkerhetsregeln använde `x.date.substring(0,7)`, en metod som inte stöds i Firestore Security Rules. Detta orsakade nekade skrivningar. Den är ersatt med en kontroll via `split('-')`.
 
 **Viktigt:** Öppna Firebase Console → Firestore → Rules och publicera innehållet i denna ZIP-fils `firestore.rules`. Att bara ladda upp GitHub-filer ändrar inte säkerhetsreglerna. Ladda också upp `app.js` för bättre felmeddelanden. Se till att administratörens användarprofil finns under `users/<UID>`; på äldre konton skapas den av appen när du loggar in.
+
+## Namn direkt i kalendern
+Varje grön datumruta visar nu antalet registrerade frakturer och namnet på alla som har registrerat frakturer denna dag. Namnen läses från befintliga registreringar, så inga ändringar i Firestore-regler eller databas krävs. Uppdatera bara `app.js` och `style.css` på GitHub.

@@ -77,7 +77,14 @@ function render() {
   $('month-heading').textContent=`${months[month][0].toUpperCase()+months[month].slice(1)} ${year}`;
   $('month-select').value=String(month);$('year-select').value=String(year);
   const sums=new Map();
-  for(const entry of entries)sums.set(entry.date,(sums.get(entry.date)||0)+entry.count);
+  const namesByDay=new Map();
+  for(const entry of entries){
+    sums.set(entry.date,(sums.get(entry.date)||0)+entry.count);
+    if(entry.count>0){
+      if(!namesByDay.has(entry.date))namesByDay.set(entry.date,new Set());
+      namesByDay.get(entry.date).add(entry.name||'Okänd');
+    }
+  }
   $('total-count').textContent=entries.reduce((s,e)=>s+e.count,0).toLocaleString('sv-SE');
   $('days-count').textContent=[...sums.values()].filter(n=>n>0).length;
   $('mine-count').textContent=entries.filter(e=>e.uid===uid).reduce((s,e)=>s+e.count,0).toLocaleString('sv-SE');
@@ -88,8 +95,9 @@ function render() {
   for(let d=1;d<=days;d++){
     const date=iso(year,month,d), count=sums.get(date)||0;
     const button=document.createElement('button');button.type='button';button.className=`day${count?' has-data':''}${date===iso(now.getFullYear(),now.getMonth(),now.getDate())?' today':''}`;
-    button.setAttribute('aria-label',`${formatDate(date)}, ${count} registrerade frakturer`);
-    button.innerHTML=`<span class="day-number">${d}</span>${count?`<span class="count-pill">${count} st</span><span class="mini-label">Registrerat</span>`:''}`;
+    const registrants=[...(namesByDay.get(date)||[])].sort((a,b)=>a.localeCompare(b,'sv'));
+    button.setAttribute('aria-label',`${formatDate(date)}, ${count} registrerade frakturer${registrants.length?', registrerat av '+registrants.join(', '):''}`);
+    button.innerHTML=`<span class="day-number">${d}</span>${count?`<span class="count-pill">${count} st</span><span class="day-names">${registrants.map(n=>`<span class="day-registrant">${html(n)}</span>`).join('')}</span>`:''}`;
     button.addEventListener('click',()=>openDay(date));grid.append(button);
   }
   if(selectedDate && selectedDate.startsWith(currentMonth()))renderDayDetails();
