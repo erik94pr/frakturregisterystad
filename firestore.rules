@@ -49,10 +49,20 @@ service cloud.firestore {
           && x.count is int && x.count >= 1 && x.count <= 9999
           && recordId == request.auth.uid + '_' + x.date;
       }
+      // Everyone, including an administrator, creates their OWN record only.
       allow create: if (admin() || approved()) && valid();
-      allow update: if (admin() || approved()) && owner() && valid()
-        && request.resource.data.uid == resource.data.uid && request.resource.data.date == resource.data.date;
-      allow delete: if (admin() || approved()) && owner();
+      // Approved users may edit their own records, without changing identity/date.
+      allow update: if (approved() || admin()) && owner() && valid()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.date == resource.data.date;
+      // Admin may change ONLY the count on any existing registration.
+      // The name, owner, date, and month are immutable.
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count'])
+        && request.resource.data.count is int
+        && request.resource.data.count >= 1
+        && request.resource.data.count <= 9999;
+      allow delete: if admin() || (approved() && owner());
     }
   }
 }

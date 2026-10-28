@@ -108,7 +108,48 @@ function renderDayDetails(){
   const mine=list.find(e=>e.uid===uid);
   $('count-input').value=mine?.count ?? 0;
   $('day-total').textContent=`${list.reduce((s,e)=>s+e.count,0)} st`;
-  $('day-entries').innerHTML=list.length?list.map(e=>`<div class="entry"><span>${html(e.name)}${e.uid===uid?' (du)':''}</span><b>${e.count} st</b></div>`).join(''):'<div class="empty-entry">Inga registreringar ännu.</div>';
+  const container=$('day-entries');
+  container.replaceChildren();
+  if(!list.length){const empty=document.createElement('div');empty.className='empty-entry';empty.textContent='Inga registreringar ännu.';container.append(empty);}
+  for(const record of list){
+    const row=document.createElement('div');row.className='entry';
+    const person=document.createElement('span');person.textContent=record.name+(record.uid===uid?' (du)':'');
+    const right=document.createElement('div');right.className='entry-actions';
+    const count=document.createElement('b');count.textContent=`${record.count} st`;right.append(count);
+    // Only an administrator gets controls on other users' entries.
+    if(administrator && record.uid!==uid){
+      const edit=document.createElement('button');edit.type='button';edit.textContent='Ändra';edit.className='entry-action';
+      edit.addEventListener('click',()=>changeOtherRegistration(record,false));
+      const remove=document.createElement('button');remove.type='button';remove.textContent='Ta bort';remove.className='entry-action danger';
+      remove.addEventListener('click',()=>changeOtherRegistration(record,true));
+      right.append(edit,remove);
+    }
+    row.append(person,right);container.append(row);
+  }
+}
+async function changeOtherRegistration(record,remove){
+  if(!administrator || !currentUser || !db || record.uid===uid)return;
+  const target=doc(db,'registrations',record.id);
+  let newCount;
+  if(remove){
+    if(!window.confirm(`Ta bort ${record.count} frakturer registrerade av ${record.name} den ${formatDate(record.date)}?`))return;
+  }else{
+    const answer=window.prompt(`Ändra antal för ${record.name} den ${formatDate(record.date)} (1–9999):`,String(record.count));
+    if(answer===null)return;
+    if(!/^\d+$/.test(answer.trim()) || !Number.isSafeInteger(Number(answer)) || Number(answer)<1 || Number(answer)>9999){
+      $('save-error').textContent='Ange ett heltal mellan 1 och 9999. Använd Ta bort för att radera posten.';return;
+    }
+    newCount=Number(answer);
+  }
+  $('save-error').textContent='';
+  const buttons=$('day-entries').querySelectorAll('button');buttons.forEach(b=>b.disabled=true);
+  try{
+    if(remove)await deleteDoc(target);
+    else await updateDoc(target,{count:newCount});
+  }catch(error){
+    $('save-error').textContent=error.code==='permission-denied'?'Ändringen nekades av Firestore. Kontrollera att de nya säkerhetsreglerna är publicerade.':`Kunde inte ändra registreringen: ${error.message}`;
+    console.error('Admin registration change failed',error);
+  }finally{buttons.forEach(b=>b.disabled=false);}
 }
 function navigate(delta){month+=delta;if(month<0){month=11;year--;}if(month>11){month=0;year++;}ensureYear();loadMonth();}
 function ensureYear(){if(!$('year-select').querySelector(`option[value="${year}"]`)){const opt=document.createElement('option');opt.value=year;opt.textContent=year;$('year-select').append(opt);}}

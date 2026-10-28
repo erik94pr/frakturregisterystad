@@ -13,3 +13,6 @@
 /* Offentlig läsvy: registreringsfält visas enbart efter inloggning och godkännande. */
 #day-form[hidden], #day-login[hidden], #sign-in[hidden], #account-login[hidden] {display:none!important;}
 #day-login {margin-top:14px;}
+
+/* Administrator actions for other registrants in the day detail */
+.entry{align-items:center;gap:12px;flex-wrap:wrap}.entry-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.entry-action{padding:6px 9px;background:#e9f4ee;border:1px solid #b9d8c8;border-radius:7px;color:#0b6853;font-size:12px;font-weight:600}.entry-action.danger{background:#fff0ee;color:#a4382b;border-color:#f2c2bb}.entry-action:disabled{opacity:.5;cursor:wait}

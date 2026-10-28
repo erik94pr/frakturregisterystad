@@ -32,3 +32,11 @@ Varje grön datumruta visar nu antalet registrerade frakturer och namnet på all
 
 ## Offentlig kalender utan inloggning
 Alla kan öppna kalendern och se datum, namn, antal, årsstatistik och exportera Excel utan inloggning. Använd knappen **Logga in / Skapa konto** först när registrering önskas. Endast godkända användare och administratörer kan skriva till Firestore. Firestore-reglerna tillåter offentlig läsning av `registrations` men kräver godkänt konto för skrivningar. Befintliga regler behöver inte ändras för denna uppdatering.
+
+## Administratör: redigera och radera andras registreringar
+
+När du har loggat in med ditt administratörskonto: öppna en grön dag i kalendern. I listan **Registrerat denna dag** finns knapparna **Ändra** och **Ta bort** bredvid **andra användares** poster. Ändra anger ett nytt antal (1–9999), Ta bort kräver bekräftelse. Dina egna poster uppdateras fortfarande genom fältet **Mitt antal registrerade frakturer** (0 raderar posten). Totalsummor och Excel-export uppdateras via Firestores realtidssynkronisering.
+
+**Installation:** Ersätt `app.js` och `style.css` på GitHub och publicera den nya `firestore.rules` under Firebase Console → Firestore → Rules → Publish. **Behåll övriga filer**. Adminrollen kontrolleras via `administrators/<UID>.active == true` i Firestore. Andra godkända användare får fortfarande bara ändra egna poster.
+
+Redigering och borttagning av andra användares registreringar ger för närvarande ingen separat revisionslogg. För spårbarhet i klinisk användning bör en sådan införas innan skarp drift.
