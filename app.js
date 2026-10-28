@@ -28,9 +28,7 @@ function loadMonth() {
 }
 function renderAnnual() {
   const daysInYear=new Date(year,1,29).getMonth()===1?366:365;
-  const countByDay=new Map();
-  for(const e of annualEntries) if(e.count>0)countByDay.set(e.date,(countByDay.get(e.date)||0)+e.count);
-  const registered=[...countByDay.values()].filter(n=>n>0).length;
+  const registered=new Set(annualEntries.filter(e=>Number.isInteger(e.count)&&e.count>=0).map(e=>e.date)).size;
   $('annual-heading').textContent=`Årsöversikt ${year}`;
   $('annual-percent').textContent=`${(100*registered/daysInYear).toLocaleString('sv-SE',{maximumFractionDigits:1})} %`;
   $('annual-days').textContent=`${registered} / ${daysInYear}`;
@@ -42,16 +40,16 @@ function exportYear() {
   const today=new Date();
   const rows=[['Datum','Veckodag','Månad','Registrerat datum','Antal frakturer','Antal registrerare','Registrerare']];
   const perDay=new Map();
-  for(const e of annualEntries){if(e.count<=0)continue;if(!perDay.has(e.date))perDay.set(e.date,[]);perDay.get(e.date).push(e);}
+  for(const e of annualEntries){if(!Number.isInteger(e.count)||e.count<0)continue;if(!perDay.has(e.date))perDay.set(e.date,[]);perDay.get(e.date).push(e);}
   const monthly=[];
   for(let m=0;m<12;m++){
     const length=new Date(year,m+1,0).getDate();let active=0,fractures=0;
     for(let d=1;d<=length;d++){
       const date=iso(year,m,d), items=perDay.get(date)||[], count=items.reduce((s,e)=>s+e.count,0);
-      if(count>0)active++;
+      if(items.length>0)active++;
       fractures+=count;
       const jsDate=new Date(year,m,d);
-      rows.push([date,['söndag','måndag','tisdag','onsdag','torsdag','fredag','lördag'][jsDate.getDay()],months[m],count>0?'Ja':'Nej',count,items.length,items.map(e=>e.name).sort((a,b)=>a.localeCompare(b,'sv')).join(', ')]);
+      rows.push([date,['söndag','måndag','tisdag','onsdag','torsdag','fredag','lördag'][jsDate.getDay()],months[m],items.length>0?'Ja':'Nej',count,items.length,items.map(e=>e.name).sort((a,b)=>a.localeCompare(b,'sv')).join(', ')]);
     }
     monthly.push([months[m],active,length,active/length,fractures]);
   }
@@ -66,7 +64,7 @@ function exportYear() {
   for(let r=2;r<=14;r++){const cell=summary[`D${r}`];if(cell)cell.z='0.0%';}
   summary['!cols']=[{wch:18},{wch:22},{wch:18},{wch:20},{wch:16}];
   XLSX.utils.book_append_sheet(book,summary,'Årsöversikt');
-  const detailed=XLSX.utils.aoa_to_sheet([['Datum','Namn','Antal frakturer'],...annualEntries.filter(e=>e.count>0).sort((a,b)=>a.date.localeCompare(b.date)).map(e=>[e.date,e.name,e.count])]);
+  const detailed=XLSX.utils.aoa_to_sheet([['Datum','Namn','Antal frakturer'],...annualEntries.filter(e=>Number.isInteger(e.count)&&e.count>=0).sort((a,b)=>a.date.localeCompare(b.date)).map(e=>[e.date,e.name,e.count])]);
   detailed['!cols']=[{wch:16},{wch:35},{wch:20}];
   XLSX.utils.book_append_sheet(book,detailed,'Per registrerare');
   XLSX.writeFile(book,`Frakturkalender_${year}.xlsx`);
@@ -80,24 +78,24 @@ function render() {
   const namesByDay=new Map();
   for(const entry of entries){
     sums.set(entry.date,(sums.get(entry.date)||0)+entry.count);
-    if(entry.count>0){
+    if(Number.isInteger(entry.count)&&entry.count>=0){
       if(!namesByDay.has(entry.date))namesByDay.set(entry.date,new Set());
       namesByDay.get(entry.date).add(entry.name||'Okänd');
     }
   }
   $('total-count').textContent=entries.reduce((s,e)=>s+e.count,0).toLocaleString('sv-SE');
-  $('days-count').textContent=[...sums.values()].filter(n=>n>0).length;
+  $('days-count').textContent=new Set(entries.filter(e=>Number.isInteger(e.count)&&e.count>=0).map(e=>e.date)).size;
   $('mine-count').textContent=entries.filter(e=>e.uid===uid).reduce((s,e)=>s+e.count,0).toLocaleString('sv-SE');
   const grid=$('calendar');grid.replaceChildren();
   const offset=(new Date(year,month,1).getDay()+6)%7;
   const days=new Date(year,month+1,0).getDate();
   for(let i=0;i<offset;i++){const blank=document.createElement('div');blank.className='day-blank';grid.append(blank);}
   for(let d=1;d<=days;d++){
-    const date=iso(year,month,d), count=sums.get(date)||0;
-    const button=document.createElement('button');button.type='button';button.className=`day${count?' has-data':''}${date===iso(now.getFullYear(),now.getMonth(),now.getDate())?' today':''}`;
+    const date=iso(year,month,d), count=sums.get(date)||0, hasRegistration=namesByDay.has(date);
+    const button=document.createElement('button');button.type='button';button.className=`day${hasRegistration?' has-data':''}${date===iso(now.getFullYear(),now.getMonth(),now.getDate())?' today':''}`;
     const registrants=[...(namesByDay.get(date)||[])].sort((a,b)=>a.localeCompare(b,'sv'));
     button.setAttribute('aria-label',`${formatDate(date)}, ${count} registrerade frakturer${registrants.length?', registrerat av '+registrants.join(', '):''}`);
-    button.innerHTML=`<span class="day-number">${d}</span>${count?`<span class="count-pill">${count} st</span><span class="day-names">${registrants.map(n=>`<span class="day-registrant">${html(n)}</span>`).join('')}</span>`:''}`;
+    button.innerHTML=`<span class="day-number">${d}</span>${hasRegistration?`<span class="count-pill">${count} st</span><span class="day-names">${registrants.map(n=>`<span class="day-registrant">${html(n)}</span>`).join('')}</span>`:''}`;
     button.addEventListener('click',()=>openDay(date));grid.append(button);
   }
   if(selectedDate && selectedDate.startsWith(currentMonth()))renderDayDetails();
@@ -123,6 +121,12 @@ function renderDayDetails(){
       const remove=document.createElement('button');remove.type='button';remove.textContent='Ta bort';remove.className='entry-action danger';
       remove.addEventListener('click',()=>changeOtherRegistration(record,true));
       right.append(edit,remove);
+    } else if(record.uid === uid && approved){
+      // Non-admin users can explicitly remove only their own saved entry,
+      // including entries whose registered fracture count is zero.
+      const remove=document.createElement('button');remove.type='button';remove.textContent='Ta bort';remove.className='entry-action danger';
+      remove.addEventListener('click',()=>removeOwnRegistration(record));
+      right.append(remove);
     }
     row.append(person,right);container.append(row);
   }
@@ -134,10 +138,10 @@ async function changeOtherRegistration(record,remove){
   if(remove){
     if(!window.confirm(`Ta bort ${record.count} frakturer registrerade av ${record.name} den ${formatDate(record.date)}?`))return;
   }else{
-    const answer=window.prompt(`Ändra antal för ${record.name} den ${formatDate(record.date)} (1–9999):`,String(record.count));
+    const answer=window.prompt(`Ändra antal för ${record.name} den ${formatDate(record.date)} (0–9999):`,String(record.count));
     if(answer===null)return;
-    if(!/^\d+$/.test(answer.trim()) || !Number.isSafeInteger(Number(answer)) || Number(answer)<1 || Number(answer)>9999){
-      $('save-error').textContent='Ange ett heltal mellan 1 och 9999. Använd Ta bort för att radera posten.';return;
+    if(!/^\d+$/.test(answer.trim()) || !Number.isSafeInteger(Number(answer)) || Number(answer)<0 || Number(answer)>9999){
+      $('save-error').textContent='Ange ett heltal mellan 0 och 9999. Använd Ta bort för att radera posten.';return;
     }
     newCount=Number(answer);
   }
@@ -149,6 +153,18 @@ async function changeOtherRegistration(record,remove){
   }catch(error){
     $('save-error').textContent=error.code==='permission-denied'?'Ändringen nekades av Firestore. Kontrollera att de nya säkerhetsreglerna är publicerade.':`Kunde inte ändra registreringen: ${error.message}`;
     console.error('Admin registration change failed',error);
+  }finally{buttons.forEach(b=>b.disabled=false);}
+}
+async function removeOwnRegistration(record){
+  if(!db || !currentUser || !approved || administrator || record.uid !== uid)return;
+  if(!window.confirm(`Ta bort din registrering den ${formatDate(record.date)}? Datumet blir bara grönt om någon annan fortfarande har registrerat det.`))return;
+  $('save-error').textContent='';
+  const buttons=$('day-entries').querySelectorAll('button');buttons.forEach(b=>b.disabled=true);
+  try{
+    await deleteDoc(doc(db,'registrations',record.id));
+  }catch(error){
+    $('save-error').textContent=error.code==='permission-denied'?'Borttagning nekades av Firestore. Kontrollera dina behörigheter.':`Kunde inte ta bort registreringen: ${error.message}`;
+    console.error('Own registration deletion failed',error);
   }finally{buttons.forEach(b=>b.disabled=false);}
 }
 function navigate(delta){month+=delta;if(month<0){month=11;year--;}if(month>11){month=0;year++;}ensureYear();loadMonth();}
@@ -169,7 +185,8 @@ $('day-form').addEventListener('submit',async e=>{
   const id=`${uid}_${selectedDate}`, record={uid,name,date:selectedDate,month:selectedDate.slice(0,7),count};
   $('save-button').disabled=true;$('save-error').textContent='';
   try{
-    if(!db||!uid)throw new Error('Anslutningen är inte klar.');if(!name)throw new Error('Din användarprofil har inte laddats. Uppdatera sidan och försök igen.');if(count)await setDoc(doc(db,'registrations',id),record);else await deleteDoc(doc(db,'registrations',id));
+    if(!db||!uid)throw new Error('Anslutningen är inte klar.');if(!name)throw new Error('Din användarprofil har inte laddats. Uppdatera sidan och försök igen.');// Zero is a valid saved registration. Removing an entry is a separate, explicit action.
+    await setDoc(doc(db,'registrations',id),record);
     hideModal('day-modal');
   }catch(err){$('save-error').textContent=err.code==='permission-denied'?'Sparning nekades av Firestore. Kontrollera att de senaste reglerna är publicerade och att kontot är godkänt.':`Kunde inte spara: ${err.message}`;console.error('Registration save failed',err);}
   finally{$('save-button').disabled=false;}
