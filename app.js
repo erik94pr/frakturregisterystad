@@ -120,9 +120,9 @@ $('day-form').addEventListener('submit',async e=>{
   const id=`${uid}_${selectedDate}`, record={uid,name,date:selectedDate,month:selectedDate.slice(0,7),count};
   $('save-button').disabled=true;$('save-error').textContent='';
   try{
-    if(!db||!uid)throw new Error('Anslutningen är inte klar.');if(count)await setDoc(doc(db,'registrations',id),record);else await deleteDoc(doc(db,'registrations',id));
+    if(!db||!uid)throw new Error('Anslutningen är inte klar.');if(!name)throw new Error('Din användarprofil har inte laddats. Uppdatera sidan och försök igen.');if(count)await setDoc(doc(db,'registrations',id),record);else await deleteDoc(doc(db,'registrations',id));
     hideModal('day-modal');
-  }catch(err){$('save-error').textContent=`Kunde inte spara: ${err.message}`;}
+  }catch(err){$('save-error').textContent=err.code==='permission-denied'?'Sparning nekades av Firestore. Kontrollera att de senaste reglerna är publicerade och att kontot är godkänt.':`Kunde inte spara: ${err.message}`;console.error('Registration save failed',err);}
   finally{$('save-button').disabled=false;}
 });
 $('day-modal').addEventListener('click',e=>{if(e.target===$('day-modal'))hideModal('day-modal');});

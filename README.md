@@ -20,3 +20,9 @@ Administratörer identifieras av UID via säkerhetsreglerna, inte genom e-postst
 Återställningsmejl är bara en kontaktuppgift i nuläget, INTE automatisk lösenordsåterställning. Att bygga korrekt återställning för syntetiska e-postkonton kräver en betrodd backend med Firebase Admin SDK.
 
 Inga externa mail skickas automatiskt.
+
+
+## Korrigering av sparning (2026-10-28)
+Den tidigare säkerhetsregeln använde `x.date.substring(0,7)`, en metod som inte stöds i Firestore Security Rules. Detta orsakade nekade skrivningar. Den är ersatt med en kontroll via `split('-')`.
+
+**Viktigt:** Öppna Firebase Console → Firestore → Rules och publicera innehållet i denna ZIP-fils `firestore.rules`. Att bara ladda upp GitHub-filer ändrar inte säkerhetsreglerna. Ladda också upp `app.js` för bättre felmeddelanden. Se till att administratörens användarprofil finns under `users/<UID>`; på äldre konton skapas den av appen när du loggar in.
