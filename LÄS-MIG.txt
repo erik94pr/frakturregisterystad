@@ -1,0 +1,14 @@
+Frakturkalendern – minimera administratörspanelen
+
+Ändring: Under ett administratörskonto visas nu ”Administrera användare” som en
+stängd, klickbar panel. Klicka för att visa användarna och klicka igen för att
+minimera panelen. Den stängs också vid utloggning.
+
+Installera:
+1. Öppna ditt GitHub-repository erik94pr/frakturregisterystad.
+2. Byt ut filerna app.js, index.html och style.css mot de tre filerna här.
+3. Klicka Commit changes.
+4. Ladda om sidan (Ctrl+F5 på dator eller uppdatera i mobilen).
+
+Ingen ändring i Firebase eller Firestore-regler behövs. Importfiler och
+övriga filer påverkas inte. Befintliga konton och registreringar behålls.

@@ -16,3 +16,15 @@
 
 /* Administrator actions for other registrants in the day detail */
 .entry{align-items:center;gap:12px;flex-wrap:wrap}.entry-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.entry-action{padding:6px 9px;background:#e9f4ee;border:1px solid #b9d8c8;border-radius:7px;color:#0b6853;font-size:12px;font-weight:600}.entry-action.danger{background:#fff0ee;color:#a4382b;border-color:#f2c2bb}.entry-action:disabled{opacity:.5;cursor:wait}
+
+/* Administratörsvyn är stängd som standard och kan fällas ut vid behov. */
+.admin-panel{padding:0;overflow:hidden}
+.admin-details > summary{padding:17px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;font-size:16px;font-weight:700;color:#17313d;user-select:none}
+.admin-details > summary::-webkit-details-marker{display:none}
+.admin-details > summary::after{content:"▾";display:block;color:#0f755f;font-size:18px;transition:transform .16s ease}
+.admin-details[open] > summary::after{transform:rotate(180deg)}
+.admin-details > summary:hover{background:#f1f8f5}
+.admin-details > summary:focus-visible{outline:2px solid #0f755f;outline-offset:-3px;border-radius:9px}
+.admin-details[open] > summary{border-bottom:1px solid #e2ebeb}
+.admin-details-content{padding:16px 20px 18px}
+.admin-details-content > p:first-child{font-size:13px;margin-bottom:12px}

@@ -249,6 +249,8 @@ function refreshAccount(){
   if(!$('day-modal').hidden && selectedDate)openDay(selectedDate);
   // Profile approval is separate from admin role. Admin can register after UID authorization.
   $('admin-panel').hidden=!administrator;
+  // Collapse the panel on logout or when administrator rights are removed.
+  if(!administrator)$('admin-details').open=false;
   if(administrator)startAdmin();else if(detachAdmin){detachAdmin();detachAdmin=null;}
 }
 function startAdmin(){if(detachAdmin)return;detachAdmin=onSnapshot(collection(db,'users'),snapshot=>{
