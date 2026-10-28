@@ -116,8 +116,8 @@ function renderDayDetails(){
     const person=document.createElement('span');person.textContent=record.name+(record.uid===uid?' (du)':'');
     const right=document.createElement('div');right.className='entry-actions';
     const count=document.createElement('b');count.textContent=`${record.count} st`;right.append(count);
-    // Only an administrator gets controls on other users' entries.
-    if(administrator && record.uid!==uid){
+    // Admin tools are visible for every registration, including the administrator's own.
+    if(administrator){
       const edit=document.createElement('button');edit.type='button';edit.textContent='Ändra';edit.className='entry-action';
       edit.addEventListener('click',()=>changeOtherRegistration(record,false));
       const remove=document.createElement('button');remove.type='button';remove.textContent='Ta bort';remove.className='entry-action danger';
@@ -128,7 +128,7 @@ function renderDayDetails(){
   }
 }
 async function changeOtherRegistration(record,remove){
-  if(!administrator || !currentUser || !db || record.uid===uid)return;
+  if(!administrator || !currentUser || !db)return;
   const target=doc(db,'registrations',record.id);
   let newCount;
   if(remove){

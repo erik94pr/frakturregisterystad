@@ -40,3 +40,10 @@ När du har loggat in med ditt administratörskonto: öppna en grön dag i kalen
 **Installation:** Ersätt `app.js` och `style.css` på GitHub och publicera den nya `firestore.rules` under Firebase Console → Firestore → Rules → Publish. **Behåll övriga filer**. Adminrollen kontrolleras via `administrators/<UID>.active == true` i Firestore. Andra godkända användare får fortfarande bara ändra egna poster.
 
 Redigering och borttagning av andra användares registreringar ger för närvarande ingen separat revisionslogg. För spårbarhet i klinisk användning bör en sådan införas innan skarp drift.
+
+## Korrigering: admin-knappar saknas
+Tidigare visades **Ändra** och **Ta bort** bara för poster där registrerarens UID skilde sig från administratörens. Nu visas de för ALLA poster om `administrators/<inloggat UID>.active` är `true`. Detta omfattar även administratörens egna poster.
+
+**Uppdatera bara `app.js` på GitHub.** Kontrollera att rätt konto är inloggat och att administratörspanelen syns. Öppna sedan ett datum med registreringar. Hård-uppdatera webbläsaren med Ctrl+F5, eller testa privat fönster om gammal JavaScript-fil ligger i cache.
+
+Inga nya Firestore-regler krävs om du redan publicerat reglerna från `frakturkalender-admin-redigera-registreringar.zip`. Om administratörspanelen inte visas måste `administrators/<UID>/active` kontrolleras i Firebase.
