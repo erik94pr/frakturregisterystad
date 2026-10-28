@@ -2,13 +2,12 @@ import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
 
 const $ = id => document.getElementById(id);
 const months = ['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
 const now = new Date();
 let year = now.getFullYear(), month = now.getMonth(), name = '';
-let uid = '', db = null, auth = null, functions = null, detach = null, detachProfile = null, detachAdmin = null, detachRole = null, entries = [], annualEntries = [], selectedDate = '', approved = false, administrator = false, currentUser = null, authMode = 'login';
+let uid = '', db = null, auth = null, detach = null, detachProfile = null, detachAdmin = null, detachRole = null, entries = [], annualEntries = [], selectedDate = '', approved = false, administrator = false, currentUser = null, authMode = 'login';
 const iso = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 const currentMonth = () => `${year}-${String(month+1).padStart(2,'0')}`;
 const formatDate = value => { const [y,m,d] = value.split('-').map(Number); return `${d} ${months[m-1]} ${y}`; };
@@ -254,87 +253,11 @@ function refreshAccount(){
   if(!administrator)$('admin-details').open=false;
   if(administrator)startAdmin();else if(detachAdmin){detachAdmin();detachAdmin=null;}
 }
-// Visa både godkännande/spärrning och permanent borttagning i adminpanelen.
-// Borttagning sker i en separat Firebase Cloud Function. En webbläsare får
-// aldrig ha tillgång till Firebase Admin SDK eller någon service account-nyckel.
-function startAdmin() {
-  if (detachAdmin) return;
-  detachAdmin = onSnapshot(collection(db, 'users'), snapshot => {
-    const users = snapshot.docs
-      .map(d => ({ uid: d.id, ...d.data() }))
-      .sort((a, b) => Number(a.approved) - Number(b.approved));
-    const el = $('admin-users');
-    el.replaceChildren();
-
-    for (const user of users) {
-      const row = document.createElement('div');
-      row.className = 'admin-row';
-      const info = document.createElement('span');
-      const username = user.username || user.name || user.email || user.uid;
-      info.textContent = `${username} (återställning: ${user.recoveryEmail || 'ej angiven'}) – ${user.approved ? 'Godkänd' : 'Väntar'}`;
-      const actions = document.createElement('div');
-      actions.className = 'admin-actions';
-      const toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.textContent = user.approved ? 'Spärra' : 'Godkänn';
-      toggle.addEventListener('click', async () => {
-        $('admin-error').textContent = '';
-        $('admin-success').textContent = '';
-        toggle.disabled = true;
-        try {
-          await updateDoc(doc(db, 'users', user.uid), { approved: !user.approved });
-        } catch (error) {
-          $('admin-error').textContent = 'Kunde inte ändra behörighet: ' + error.message;
-        } finally {
-          toggle.disabled = false;
-        }
-      });
-      actions.append(toggle);
-
-      // Skydda det inloggade administratörskontot från att radera sig självt.
-      if (user.uid !== uid) {
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.textContent = 'Ta bort';
-        remove.className = 'admin-delete';
-        remove.setAttribute('aria-label', `Ta bort användaren ${username}`);
-        remove.addEventListener('click', async () => {
-          if (!administrator) return;
-          const question = `Ta bort kontot ”${username}” permanent?\n\nAnvändaren kan inte längre logga in. Tidigare frakturregistreringar behålls i kalendern. Borttagningen kan inte ångras.`;
-          if (!window.confirm(question)) return;
-          $('admin-error').textContent = '';
-          $('admin-success').textContent = '';
-          remove.disabled = true;
-          toggle.disabled = true;
-          try {
-            const removeUser = httpsCallable(functions, 'deleteCalendarUser');
-            const response = await removeUser({ uid: user.uid });
-            if (!response.data?.ok) throw new Error('Servern bekräftade inte borttagningen.');
-            $('admin-success').textContent = `Kontot ”${username}” har tagits bort. Tidigare registreringar finns kvar.`;
-          } catch (error) {
-            console.error('Kunde inte radera användare', error);
-            if (error.code === 'functions/not-found') {
-              $('admin-error').textContent = 'Borttagningsfunktionen är ännu inte installerad i Firebase. Se INSTALLERA.txt i ZIP-filen.';
-            } else if (error.code === 'functions/permission-denied') {
-              $('admin-error').textContent = 'Du saknar administratörsbehörighet för att ta bort kontot.';
-            } else if (error.code === 'functions/unavailable') {
-              $('admin-error').textContent = 'Serverfunktionen kunde inte nås. Kontrollera anslutningen och försök igen.';
-            } else {
-              $('admin-error').textContent = 'Borttagningen misslyckades: ' + (error.message || String(error));
-            }
-          } finally {
-            remove.disabled = false;
-            toggle.disabled = false;
-          }
-        });
-        actions.append(remove);
-      }
-      row.append(info, actions);
-      el.append(row);
-    }
-  }, error => { $('admin-error').textContent = error.message; });
-}
-const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);functions=getFunctions(app,'europe-west3');
+function startAdmin(){if(detachAdmin)return;detachAdmin=onSnapshot(collection(db,'users'),snapshot=>{
+ const users=snapshot.docs.map(d=>({uid:d.id,...d.data()})).sort((a,b)=>Number(a.approved)-Number(b.approved));
+ const el=$('admin-users');el.replaceChildren();for(const user of users){const row=document.createElement('div');row.className='admin-row';const info=document.createElement('span');info.textContent=`${user.username||user.name||user.email} (återställning: ${user.recoveryEmail||"ej angiven"}) – ${user.approved?'Godkänd':'Väntar'}`;const button=document.createElement('button');button.textContent=user.approved?'Spärra':'Godkänn';button.onclick=async()=>{button.disabled=true;try{await updateDoc(doc(db,'users',user.uid),{approved:!user.approved});}catch(e){$('admin-error').textContent=e.message;}finally{button.disabled=false;}};row.append(info,button);el.append(row);}
+ },error=>{$('admin-error').textContent=error.message;});}
+const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);
 onAuthStateChanged(auth,user=>{
   if(detachProfile){detachProfile();detachProfile=null;}
   if(detachRole){detachRole();detachRole=null;}
